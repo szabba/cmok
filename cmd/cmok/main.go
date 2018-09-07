@@ -7,6 +7,7 @@ import (
 
 	"github.com/szabba/cmok"
 	"github.com/szabba/cmok/fs"
+	"github.com/szabba/cmok/userlist"
 )
 
 var (
@@ -18,8 +19,14 @@ func main() {
 
 	flag.Parse()
 
+	authCfg := userlist.Config{
+		Users: map[cmok.User]userlist.UserConfig{
+			"uploader": {Password: "download"},
+		},
+	}
+	authSvc := userlist.NewAuthService(authCfg)
 	storage := fs.NewStorage(storageDir)
-	handler := cmok.NewHandler(storage)
+	handler := cmok.NewHandler(authSvc, storage)
 
 	err := http.ListenAndServe(":1157", handler)
 	if err != nil {

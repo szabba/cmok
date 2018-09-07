@@ -9,16 +9,24 @@ import (
 )
 
 type Handler struct {
-	storage Storage
+	authService AuthService
+	storage     Storage
 }
 
 var _ http.Handler = new(Handler)
 
-func NewHandler(storage Storage) *Handler {
-	return &Handler{storage}
+func NewHandler(authService AuthService, storage Storage) *Handler {
+	return &Handler{
+		authService: authService,
+		storage:     storage,
+	}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_, ok := h.authService.Authenticate(w, r)
+	if !ok {
+		return
+	}
 	switch r.Method {
 	case "GET":
 		h.handleGet(w, r)
@@ -27,6 +35,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+}
+
+func (h *Handler) respondUnauthorized(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusUnauthorized)
 }
 
 func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
