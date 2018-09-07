@@ -11,10 +11,12 @@ import (
 )
 
 var (
+	addr       string
 	storageDir string
 )
 
 func main() {
+	flag.StringVar(&addr, "addr", ":1157", "the address to listen on")
 	flag.StringVar(&storageDir, "storage-dir", ".", "the directory to use for storage")
 
 	flag.Parse()
@@ -28,7 +30,8 @@ func main() {
 	storage := fs.NewStorage(storageDir)
 	handler := cmok.NewHandler(authSvc, storage)
 
-	err := http.ListenAndServe(":1157", handler)
+	log.Printf("listening on %q", addr)
+	err := http.ListenAndServe(addr, handler)
 	if err != nil {
 		log.Fatal(err)
 	}
