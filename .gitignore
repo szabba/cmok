@@ -1,5 +1,7 @@
 .vscode/
-
-bin/
 debug
 debug.test
+
+bin/
+
+TODO.markdown
