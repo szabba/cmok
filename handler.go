@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"path"
 )
@@ -23,6 +24,7 @@ func NewHandler(authService AuthService, storage Storage) *Handler {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Printf("request %s %s", r.Method, r.URL.Path)
 	_, ok := h.authService.Authenticate(w, r)
 	if !ok {
 		return
