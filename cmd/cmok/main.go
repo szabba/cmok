@@ -26,9 +26,13 @@ func main() {
 			"uploader": {Password: "download"},
 		},
 	}
+
 	authSvc := userlist.NewAuthService(authCfg)
+	accessPolicy := cmok.NopPolicy{}
+
 	storage := fs.NewStorage(storageDir)
-	handler := cmok.NewHandler(authSvc, storage)
+
+	handler := cmok.NewHandler(authSvc, accessPolicy, storage)
 
 	log.Printf("listening on %q", addr)
 	err := http.ListenAndServe(addr, handler)
