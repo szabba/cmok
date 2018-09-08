@@ -10,7 +10,6 @@ type Entry struct {
 }
 
 type Storage interface {
-	List(path string) ([]Entry, error)
-	Get(path string) (io.ReadCloser, error)
-	Put(path string, content io.ReadCloser) error
+	Get(path string) ([]Entry, io.ReadCloser, error)
+	Set(path string, content io.ReadCloser) error
 }

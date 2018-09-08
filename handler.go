@@ -45,30 +45,23 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request, storage Storage) {
-	entries, err := storage.List(r.URL.Path)
-	if err == nil {
-		listTemplate.Execute(w, entries)
-		return
-	}
-
-	f, err := storage.Get(r.URL.Path)
+	children, content, err := storage.Get(r.URL.Path)
 	if err != nil {
-		fmt.Fprintf(w, "cannot find %q", r.URL.Path)
-		w.WriteHeader(http.StatusNotFound)
-		return
+		http.Error(w, err.Error(), http.StatusNotFound)
+
+	} else if children != nil {
+		listTemplate.Execute(w, children)
+
+	} else {
+		defer content.Close()
+
+		_, name := path.Split(r.URL.Path)
+		h.forceDownload(w, name, content)
 	}
-	defer f.Close()
-
-	w.Header().Set("Content-Type", "application/force-download")
-	w.Header().Set("Content-Transfer-Encoding", "binary")
-	_, name := path.Split(r.URL.Path)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
-
-	io.Copy(w, f)
 }
 
 func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request, storage Storage) {
-	err := storage.Put(r.URL.Path, r.Body)
+	err := storage.Set(r.URL.Path, r.Body)
 	if err != nil {
 		fmt.Fprint(w, err)
 		w.WriteHeader(http.StatusConflict)
@@ -76,6 +69,14 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request, storage Stor
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) forceDownload(w http.ResponseWriter, name string, r io.Reader) {
+	w.Header().Set("Content-Type", "application/force-download")
+	w.Header().Set("Content-Transfer-Encoding", "binary")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
+
+	io.Copy(w, r)
 }
 
 var listTemplate = template.Must(template.New("list").Parse(listTemplateText))

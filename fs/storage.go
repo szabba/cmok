@@ -18,7 +18,16 @@ func NewStorage(rootPath string) *Storage {
 	return &Storage{rootPath}
 }
 
-func (st *Storage) List(path string) ([]cmok.Entry, error) {
+func (st *Storage) Get(path string) ([]cmok.Entry, io.ReadCloser, error) {
+	children, err := st.list(path)
+	if err == nil {
+		return children, nil, nil
+	}
+	content, err := st.getOne(path)
+	return nil, content, err
+}
+
+func (st *Storage) list(path string) ([]cmok.Entry, error) {
 	localPath, err := st.sanitize(path)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sanitize path %q", path)
@@ -54,7 +63,7 @@ func (st *Storage) fileInfoToEntry(at string, fi os.FileInfo) cmok.Entry {
 	}
 }
 
-func (st *Storage) Get(path string) (io.ReadCloser, error) {
+func (st *Storage) getOne(path string) (io.ReadCloser, error) {
 	localPath, err := st.sanitize(path)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sanitize path %q", err)
@@ -68,7 +77,7 @@ func (st *Storage) Get(path string) (io.ReadCloser, error) {
 	return f, nil
 }
 
-func (st *Storage) Put(path string, content io.ReadCloser) error {
+func (st *Storage) Set(path string, content io.ReadCloser) error {
 	localPath, err := st.sanitize(path)
 	if err != nil {
 		return fmt.Errorf("cannot sanitize path %q", err)
