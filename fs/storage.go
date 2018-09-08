@@ -19,26 +19,34 @@ func NewStorage(rootPath string) *Storage {
 }
 
 func (st *Storage) Get(path string) ([]cmok.Entry, io.ReadCloser, error) {
-	children, err := st.list(path)
+	f, err := st.open(path, os.Open)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot access %q", path)
+	}
+
+	children, err := st.listChildren(path, f)
 	if err == nil {
 		return children, nil, nil
 	}
-	content, err := st.getOne(path)
-	return nil, content, err
+
+	return nil, f, nil
 }
 
-func (st *Storage) list(path string) ([]cmok.Entry, error) {
-	localPath, err := st.sanitize(path)
+func (st *Storage) Set(path string, content io.ReadCloser) error {
+	f, err := st.open(path, os.Create)
 	if err != nil {
-		return nil, fmt.Errorf("cannot sanitize path %q", path)
+		return fmt.Errorf("cannot access %q", path)
 	}
+	defer st.close(f, &err, path)
 
-	f, err := os.Open(localPath)
+	_, err = io.Copy(f, content)
 	if err != nil {
-		return nil, fmt.Errorf("cannot access %q", path)
+		err = fmt.Errorf("cannot write %q", path)
 	}
-	defer f.Close()
+	return err
+}
 
+func (st *Storage) listChildren(path string, f *os.File) ([]cmok.Entry, error) {
 	fis, err := f.Readdir(0)
 	if err != nil {
 		return nil, fmt.Errorf("cannot list children of %q", path)
@@ -63,37 +71,17 @@ func (st *Storage) fileInfoToEntry(at string, fi os.FileInfo) cmok.Entry {
 	}
 }
 
-func (st *Storage) getOne(path string) (io.ReadCloser, error) {
+func (st *Storage) open(path string, openFn func(string) (*os.File, error)) (*os.File, error) {
 	localPath, err := st.sanitize(path)
 	if err != nil {
-		return nil, fmt.Errorf("cannot sanitize path %q", err)
+		return nil, fmt.Errorf("cannot sanitize path %q", path)
 	}
 
-	f, err := os.Open(localPath)
+	f, err := openFn(localPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot access %q", path)
+		err = fmt.Errorf("cannot access %q", path)
 	}
-
-	return f, nil
-}
-
-func (st *Storage) Set(path string, content io.ReadCloser) error {
-	localPath, err := st.sanitize(path)
-	if err != nil {
-		return fmt.Errorf("cannot sanitize path %q", err)
-	}
-
-	f, err := os.Create(localPath)
-	if err != nil {
-		return fmt.Errorf("cannot access %q", path)
-	}
-	defer st.close(f, &err, path)
-
-	_, err = io.Copy(f, content)
-	if err != nil {
-		err = fmt.Errorf("cannot write %q", path)
-	}
-	return err
+	return f, err
 }
 
 func (st *Storage) sanitize(path string) (string, error) {
