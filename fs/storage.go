@@ -33,6 +33,11 @@ func (st *Storage) Get(path string) ([]cmok.Entry, io.ReadCloser, error) {
 }
 
 func (st *Storage) Set(path string, content io.ReadCloser) error {
+	err := st.createParents(path)
+	if err != nil {
+		return fmt.Errorf("cannot access %q", path)
+	}
+
 	f, err := st.open(path, os.Create)
 	if err != nil {
 		return fmt.Errorf("cannot access %q", path)
@@ -44,6 +49,19 @@ func (st *Storage) Set(path string, content io.ReadCloser) error {
 		err = fmt.Errorf("cannot write %q", path)
 	}
 	return err
+}
+
+func (st *Storage) open(path string, openFn func(string) (*os.File, error)) (*os.File, error) {
+	localPath, err := st.sanitize(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot sanitize path %q", path)
+	}
+
+	f, err := openFn(localPath)
+	if err != nil {
+		err = fmt.Errorf("cannot access %q", path)
+	}
+	return f, err
 }
 
 func (st *Storage) listChildren(path string, f *os.File) ([]cmok.Entry, error) {
@@ -60,6 +78,18 @@ func (st *Storage) listChildren(path string, f *os.File) ([]cmok.Entry, error) {
 	return entries, nil
 }
 
+func (st *Storage) createParents(path string) error {
+	localPath, err := st.sanitize(path)
+	if err != nil {
+		return err
+	}
+	parent, _ := filepath.Split(localPath)
+	if parent == localPath {
+		return nil
+	}
+	return os.MkdirAll(parent, 0755)
+}
+
 func (st *Storage) fileInfoToEntry(at string, fi os.FileInfo) cmok.Entry {
 	name := fi.Name()
 	if fi.IsDir() {
@@ -69,19 +99,6 @@ func (st *Storage) fileInfoToEntry(at string, fi os.FileInfo) cmok.Entry {
 		Name: name,
 		Path: path.Join(at, fi.Name()),
 	}
-}
-
-func (st *Storage) open(path string, openFn func(string) (*os.File, error)) (*os.File, error) {
-	localPath, err := st.sanitize(path)
-	if err != nil {
-		return nil, fmt.Errorf("cannot sanitize path %q", path)
-	}
-
-	f, err := openFn(localPath)
-	if err != nil {
-		err = fmt.Errorf("cannot access %q", path)
-	}
-	return f, err
 }
 
 func (st *Storage) sanitize(path string) (string, error) {
