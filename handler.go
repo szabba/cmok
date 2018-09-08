@@ -63,8 +63,8 @@ func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request, storage Stor
 func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request, storage Storage) {
 	err := storage.Set(r.URL.Path, r.Body)
 	if err != nil {
-		fmt.Fprint(w, err)
 		w.WriteHeader(http.StatusConflict)
+		fmt.Fprint(w, err)
 		return
 	}
 
