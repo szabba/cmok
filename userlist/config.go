@@ -1,12 +1,16 @@
 package userlist
 
 import (
-	"github.com/szabba/cmok"
+	"github.com/szabba/cmok/auth"
 )
 
-type Config struct {
+type AuthConfig struct {
 	Realm string                   `json:"realm"`
-	Users map[cmok.User]UserConfig `json:"users"`
+	Users map[auth.User]UserConfig `json:"users"`
+}
+
+type AccessConfig struct {
+	Permissions map[auth.User]Permissions `json:"permissions"`
 }
 
 type UserConfig struct {
@@ -16,3 +20,24 @@ type UserConfig struct {
 type Password string
 
 const NoPassword = Password("")
+
+type Permissions struct {
+	CanRead  bool
+	CanWrite bool
+}
+
+func None() Permissions {
+	return Permissions{}
+}
+
+func Read() Permissions {
+	return Permissions{CanRead: true}
+}
+
+func Write() Permissions {
+	return Permissions{CanWrite: true}
+}
+
+func All() Permissions {
+	return Permissions{CanRead: true, CanWrite: true}
+}

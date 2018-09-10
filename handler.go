@@ -7,18 +7,28 @@ import (
 	"log"
 	"net/http"
 	"path"
+
+	"github.com/szabba/cmok/auth"
+)
+
+const (
+	_WWWAuthenticateHeader             = "WWW-Authenticate"
+	_WWWAuthenticateHeaderWithoutRealm = "Basic"
+	_WWWAuthenticateHeaderWithRealm    = "Basic realm=%q"
 )
 
 type Handler struct {
-	authService  AuthService
+	realm        string
+	authService  auth.Service
 	accessPolicy AccessPolicy
 	storage      Storage
 }
 
 var _ http.Handler = new(Handler)
 
-func NewHandler(authService AuthService, accessPolicy AccessPolicy, storage Storage) *Handler {
+func NewHandler(realm string, authService auth.Service, accessPolicy AccessPolicy, storage Storage) *Handler {
 	return &Handler{
+		realm:        realm,
 		authService:  authService,
 		accessPolicy: accessPolicy,
 		storage:      storage,
@@ -27,8 +37,9 @@ func NewHandler(authService AuthService, accessPolicy AccessPolicy, storage Stor
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("request %s %s", r.Method, r.URL.Path)
-	user, ok := h.authService.Authenticate(w, r)
+	user, ok := h.authService.Authenticate(r)
 	if !ok {
+		h.denyAccess(w)
 		return
 	}
 
@@ -46,7 +57,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request, storage Storage) {
 	children, content, err := storage.Get(r.URL.Path)
-	if err != nil {
+	if err == ErrAccessDenied {
+		h.denyAccess(w)
+
+	} else if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 
 	} else if children != nil {
@@ -62,13 +76,28 @@ func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request, storage Stor
 
 func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request, storage Storage) {
 	err := storage.Set(r.URL.Path, r.Body)
-	if err != nil {
+	if err == ErrAccessDenied {
+		h.denyAccess(w)
+
+	} else if err != nil {
 		w.WriteHeader(http.StatusConflict)
 		fmt.Fprint(w, err)
-		return
-	}
 
-	w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (h *Handler) denyAccess(w http.ResponseWriter) {
+	w.Header().Set(_WWWAuthenticateHeader, h.wwwAuthentiacateHeaderValue())
+	http.Error(w, "access denied", http.StatusUnauthorized)
+}
+
+func (h *Handler) wwwAuthentiacateHeaderValue() string {
+	if h.realm == "" {
+		return _WWWAuthenticateHeaderWithoutRealm
+	}
+	return fmt.Sprintf(_WWWAuthenticateHeaderWithRealm, h.realm)
 }
 
 func (h *Handler) forceDownload(w http.ResponseWriter, name string, r io.Reader) {

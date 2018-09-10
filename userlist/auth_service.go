@@ -3,20 +3,17 @@ package userlist
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
-	"github.com/szabba/cmok"
+	"github.com/szabba/cmok/auth"
 )
 
 const (
-	_AuthorizationHeader         = "Authorization"
-	_WWWAuthenticateHeader       = "WWW-Authenticate"
-	_WWWAuthenticateHeaderFormat = `Basic realm=%q`
-	_HeaderPrefix                = "Basic"
-	_CredentialsSeparator        = ":"
+	_AuthorizationHeader  = "Authorization"
+	_HeaderPrefix         = "Basic"
+	_CredentialsSeparator = ":"
 )
 
 var (
@@ -24,57 +21,43 @@ var (
 )
 
 type AuthService struct {
-	config Config
+	config AuthConfig
 }
 
-func NewAuthService(config Config) *AuthService {
+func NewAuthService(config AuthConfig) *AuthService {
 	return &AuthService{config}
 }
 
-var _ cmok.AuthService = new(AuthService)
+var _ auth.Service = new(AuthService)
 
-func (svc *AuthService) Authenticate(w http.ResponseWriter, r *http.Request) (cmok.User, bool) {
-	user, ok := svc.authenticate(r)
-	if !ok {
-		svc.writeUnauthorized(w)
-	}
-	return user, ok
-}
-
-func (svc *AuthService) authenticate(r *http.Request) (cmok.User, bool) {
+func (svc *AuthService) Authenticate(r *http.Request) (auth.User, bool) {
 	user, password, ok := svc.getCredentials(r)
-	if user == cmok.AnonymousUser {
-		return cmok.AnonymousUser, ok
+	if user == auth.AnonymousUser {
+		return auth.AnonymousUser, ok
 	}
 
 	userDetails, present := svc.config.Users[user]
 	if !present || password != userDetails.Password {
-		return cmok.AnonymousUser, false
+		return auth.AnonymousUser, false
 	}
 
 	return user, true
 }
 
-func (svc *AuthService) writeUnauthorized(w http.ResponseWriter) {
-	wwwAuthentiacateHeaderValue := fmt.Sprintf(_WWWAuthenticateHeaderFormat, svc.config.Realm)
-	w.Header().Set(_WWWAuthenticateHeader, wwwAuthentiacateHeaderValue)
-	http.Error(w, "authentication failed", http.StatusUnauthorized)
-}
-
-func (svc *AuthService) getCredentials(r *http.Request) (cmok.User, Password, bool) {
+func (svc *AuthService) getCredentials(r *http.Request) (auth.User, Password, bool) {
 	authHeader := r.Header.Get(_AuthorizationHeader)
 	if authHeader == "" {
-		return cmok.AnonymousUser, NoPassword, true
+		return auth.AnonymousUser, NoPassword, true
 	}
 
 	encodedCredentials, ok := svc.extractCredentials(authHeader)
 	if !ok {
-		return cmok.AnonymousUser, NoPassword, false
+		return auth.AnonymousUser, NoPassword, false
 	}
 
 	credentials, ok := svc.decodeCredentials(encodedCredentials)
 	if !ok {
-		return cmok.AnonymousUser, NoPassword, false
+		return auth.AnonymousUser, NoPassword, false
 	}
 
 	return svc.splitCredentials(credentials)
@@ -97,10 +80,10 @@ func (svc *AuthService) decodeCredentials(encoded string) (string, bool) {
 	return string(decoded), err == nil
 }
 
-func (svc *AuthService) splitCredentials(creds string) (cmok.User, Password, bool) {
+func (svc *AuthService) splitCredentials(creds string) (auth.User, Password, bool) {
 	parts := strings.SplitN(creds, _CredentialsSeparator, 2)
 	if len(parts) != 2 {
-		return cmok.AnonymousUser, NoPassword, false
+		return auth.AnonymousUser, NoPassword, false
 	}
-	return cmok.User(parts[0]), Password(parts[1]), true
+	return auth.User(parts[0]), Password(parts[1]), true
 }

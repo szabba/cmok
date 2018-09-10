@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/szabba/cmok"
+	"github.com/szabba/cmok/auth"
 	"github.com/szabba/cmok/fs"
 	"github.com/szabba/cmok/userlist"
 )
@@ -21,18 +22,26 @@ func main() {
 
 	flag.Parse()
 
-	authCfg := userlist.Config{
-		Users: map[cmok.User]userlist.UserConfig{
-			"uploader": {Password: "download"},
+	authCfg := userlist.AuthConfig{
+		Users: map[auth.User]userlist.UserConfig{
+			"ci":  {Password: "pass"},
+			"dev": {Password: "pass"},
+		},
+	}
+
+	accessConfig := userlist.AccessConfig{
+		Permissions: map[auth.User]userlist.Permissions{
+			"ci":  userlist.All(),
+			"dev": userlist.Read(),
 		},
 	}
 
 	authSvc := userlist.NewAuthService(authCfg)
-	accessPolicy := cmok.NopPolicy{}
+	accessPolicy := userlist.NewAccessPolicy(accessConfig)
 
 	storage := fs.NewStorage(storageDir)
 
-	handler := cmok.NewHandler(authSvc, accessPolicy, storage)
+	handler := cmok.NewHandler("", authSvc, accessPolicy, storage)
 
 	log.Printf("listening on %q", addr)
 	err := http.ListenAndServe(addr, handler)

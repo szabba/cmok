@@ -1,17 +1,12 @@
 package cmok
 
 import (
-	"net/http"
+	"errors"
+	"github.com/szabba/cmok/auth"
 )
 
-type AuthService interface {
-	Authenticate(w http.ResponseWriter, r *http.Request) (User, bool)
-}
+var ErrAccessDenied = errors.New("access denied")
 
 type AccessPolicy interface {
-	Protect(storage Storage, user User) Storage
+	Protect(storage Storage, user auth.User) Storage
 }
-
-type User string
-
-const AnonymousUser = User("")
