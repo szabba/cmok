@@ -22,8 +22,8 @@ type Password string
 const NoPassword = Password("")
 
 type Permissions struct {
-	CanRead  bool
-	CanWrite bool
+	CanRead  bool `json:"can_read"`
+	CanWrite bool `json:"can_write"`
 }
 
 func None() Permissions {

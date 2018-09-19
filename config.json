@@ -1,0 +1,20 @@
+{
+    "users": {
+        "ci": {
+            "password": "pass"
+        },
+        "dev": {
+            "password": "pass"
+        }
+    },
+    "permissions": {
+        "ci": {
+            "can_read": true,
+            "can_write": true
+        },
+        "dev": {
+            "can_read": true,
+            "can_write": false
+        }
+    }
+}

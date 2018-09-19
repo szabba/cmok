@@ -4,9 +4,10 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/szabba/cmok"
-	"github.com/szabba/cmok/auth"
+	"github.com/szabba/cmok/config"
 	"github.com/szabba/cmok/fs"
 	"github.com/szabba/cmok/userlist"
 )
@@ -22,29 +23,22 @@ func main() {
 
 	flag.Parse()
 
-	authCfg := userlist.AuthConfig{
-		Users: map[auth.User]userlist.UserConfig{
-			"ci":  {Password: "pass"},
-			"dev": {Password: "pass"},
-		},
+	config, err := configuration.Parse(os.Stdin)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	accessConfig := userlist.AccessConfig{
-		Permissions: map[auth.User]userlist.Permissions{
-			"ci":  userlist.All(),
-			"dev": userlist.Read(),
-		},
-	}
-
-	authSvc := userlist.NewAuthService(authCfg)
-	accessPolicy := userlist.NewAccessPolicy(accessConfig)
+	authSvc := userlist.NewAuthService(config.AuthConfig)
+	accessPolicy := userlist.NewAccessPolicy(config.AccessConfig)
 
 	storage := fs.NewStorage(storageDir)
 
+	// TODO: move muxing out of handler
 	handler := cmok.NewHandler("", authSvc, accessPolicy, storage)
 
 	log.Printf("listening on %q", addr)
-	err := http.ListenAndServe(addr, handler)
+	// TODO: non-global, properly configured server
+	err = http.ListenAndServe(addr, handler)
 	if err != nil {
 		log.Fatal(err)
 	}
